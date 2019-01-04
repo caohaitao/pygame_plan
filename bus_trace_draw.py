@@ -101,9 +101,10 @@ class Example(QWidget):
         x = int(gps[temp_count-1][0])
         y = int(gps[temp_count-1][1])
         qp.drawRect(x, y, 3, 3)
+        print("percent=%0.4f"%(temp_count/len(gps)))
 
 if __name__ == "__main__":
-    gps = GetLocGPSFromFile(r"E:\work\OD\常州\00E0B453CA7F\trans_log\00E0B453CA7F4020.txt")
+    gps = GetLocGPSFromFile(r"E:\work\OD\常州\00E0B4551F68\00E0B4551F684020.txt")
     gps = trans_gps_to_rect(gps,dlg_width,dlg_heigth)
     app = QApplication(sys.argv)
     ex = Example(gps)
