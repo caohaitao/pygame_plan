@@ -9,11 +9,15 @@ import numpy as np
 import time
 import os
 import shutil
+from img_data_read import *
+from img_train import *
 
-dlg_width = 200
-dlg_heigth = 200
+dlg_width = 160
+dlg_heigth = 160
 rect_length = 20
-move_speed = 10
+move_speed = 4
+
+rate = 10
 
 class TObject:
     def __init__(self,pos,color):
@@ -54,17 +58,17 @@ class MainDlg(QWidget):
     def __init__(self):
         super().__init__()
         self.initUI()
-        t = QTimer(self)
-        t.timeout.connect(self.update)
-        t.start(200)
+        self.t = QTimer(self)
+        self.t.timeout.connect(self.update)
+        self.t.start(200/rate)
 
-        t2 = QTimer(self)
-        t2.timeout.connect(self.enimy_move)
-        t2.start(200)
+        self.t2 = QTimer(self)
+        self.t2.timeout.connect(self.enimy_move)
+        self.t2.start(200/rate)
 
-        t3 = QTimer(self)
-        t3.timeout.connect(self.auto_move)
-        t3.start(100)
+        self.t3 = QTimer(self)
+        self.t3.timeout.connect(self.auto_move)
+        self.t3.start(100/rate)
 
         people_pos = QSize(dlg_width/2,dlg_heigth-rect_length/2)
         self.people = TObject(people_pos,QColor(200,0,0))
@@ -79,8 +83,23 @@ class MainDlg(QWidget):
             shutil.rmtree("imgs\\")
         os.mkdir("imgs")
 
+        self.cnn = get_cnn()
+
+    def quit(self):
+        self.t.stop()
+        self.t2.stop()
+        self.t3.stop()
+        self.close()
+
     def auto_move(self):
-        r = random.randint(0,2)
+
+        self.pixmap.save('temp_bmp.bmp')
+        res = np.ndarray(shape=(1, 3, dlg_width, dlg_heigth), dtype='float32')
+        image, w, h = read_one_data2('temp_bmp.bmp')
+        res[0] = image
+        r = get_right_move(self.cnn,res)
+
+        #r = random.randint(0,2)
         m = 0
         if r == 0:
             m = r
@@ -102,7 +121,7 @@ class MainDlg(QWidget):
 
     def enimy_move(self):
         if len(self.enemys)<6:
-            if (time.time() - self.last_enemy_product_time)>2:
+            if (time.time()*1000 - self.last_enemy_product_time)>4000/rate:
                 self.ProductAEnemy()
 
         del_objs = []
@@ -112,7 +131,9 @@ class MainDlg(QWidget):
 
             if self.people.Cross(e):
                 print("cross")
-                exit()
+                #exit()
+                print("score=%d"%self.score)
+                self.quit()
         for e in del_objs:
             self.enemys.remove(e)
             self.score += 1
@@ -121,6 +142,7 @@ class MainDlg(QWidget):
         self.setGeometry(800, 700, dlg_width, dlg_heigth)
         self.setWindowTitle("Plane")
         self.show()
+        self.minimumSize()
 
     def paintEvent(self, e):
         #pixmap = QImage(dlg_width, dlg_heigth)
@@ -145,7 +167,7 @@ class MainDlg(QWidget):
             self.is_save = False
 
     def ProductAEnemy(self):
-        self.last_enemy_product_time = time.time()
+        self.last_enemy_product_time = time.time()*1000
         rand_x = random.randint(rect_length/2,dlg_width-rect_length/2)
         y = rect_length/2
         enemy = TObject(QSize(rand_x,y),QColor(0,200,0))
@@ -187,4 +209,4 @@ class MainDlg(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     ex = MainDlg()
-    sys.exit(app.exec_())
+    app.exec_()

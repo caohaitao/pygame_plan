@@ -6,6 +6,7 @@ from PIL import Image
 import torch
 import torch.nn as nn
 import torchvision
+import random
 
 def read_one_data(file_path):
     im = cv2.imread(file_path)
@@ -49,35 +50,76 @@ def read_datas(dir):
             i = i+1
     return res,label,label2,w,h
 
+def GetRightLabel(l):
+    while True:
+        res = random.randint(0,2)
+        if res != l:
+            return res
+
+# def read_datas2(dir):
+#     for (root,dirs,files) in os.walk(dir):
+#         print(len(files))
+#         count = int(len(files))
+#         label = np.ndarray(shape=(count),dtype='int64')
+#         i = 0
+#         for item in files:
+#             if item.find('.bmp') == -1:
+#                 continue
+#             file_path = format("%s\%s"%(dir,item))
+#             r,w,h = read_one_data2(file_path)
+#             if i==0:
+#                 res = np.ndarray(shape=(count,3,w,h),dtype='float32')
+#             res[i] = r
+#             l = file_path.replace('.bmp','')
+#             ls = l.split('_')
+#             if len(ls) != 3:
+#                 continue
+#             #label[i] = int(ls[2])
+#             label[i] = GetRightLabel(int(ls[2]))
+#             i = i + 1
+#     return res,label,w,h
+
 def read_datas2(dir):
-    for (root,dirs,files) in os.walk(dir):
-        print(len(files))
-        count = int(len(files)/2)
-        label = np.ndarray(shape=(count,12),dtype='float32')
-        i = 0
+    mps = {}
+    for (root, dirs, files) in os.walk(dir):
         for item in files:
-            if item.find('.bmp') == -1:
+            spls = item.split('_')
+            if len(spls) !=3:
                 continue
-            file_path = format("%s\%s"%(dir,item))
-            r,w,h = read_one_data2(file_path)
-            if i==0:
-                res = np.ndarray(shape=(count,3,w,h),dtype='float32')
-            res[i] = r
-            label_path = file_path.replace('.bmp','')
-            label_path = label_path+".label"
-            label_file = open(label_path,'r')
-            line = label_file.readline()
-            label_file.close()
-            ds = line.split(',')
-            if len(ds) != 12:
-                continue
-            for j in range(12):
-                label[i][j] = ds[j]
-            i = i + 1
+            index = int(spls[1])
+            mps[index] = item
+
+    mpskeys = sorted(mps.keys())
+    fs = []
+    count = 0
+    for k in mpskeys:
+        fs.append(mps[k])
+        count+=1
+        if count == 50:
+            break
+
+    if count == 0:
+        print("count is zero")
+
+    label = np.ndarray(shape=len(fs),dtype='int64')
+    res = np.ndarray(shape=(count, 3, 160, 160), dtype='float32')
+    w = 160
+    h = 160
+    i=0
+    for item in fs:
+       file_path = format("%s\%s"%(dir,item))
+       r, w, h = read_one_data2(file_path)
+       res[i] = r
+       l = file_path.replace('.bmp', '')
+       ls = l.split('_')
+       if len(ls) != 3:
+           continue
+       label[i] = GetRightLabel(int(ls[2]))
+       i = i + 1
     return res,label,w,h
 
 
 if __name__ == "__main__":
     #read_datas()
     #read_one_data2()
-    read_datas2(r"imgs")
+    res,label,w,h = read_datas2(r"imgs")

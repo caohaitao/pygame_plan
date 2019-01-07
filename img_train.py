@@ -10,8 +10,9 @@ import numpy as np
 import os
 import sys
 import LossShow
+from img_data_read import *
 
-EPOCH = 1000              # train the training data n times, to save time, we just train 1 epoch
+EPOCH = 100              # train the training data n times, to save time, we just train 1 epoch
 BATCH_SIZE = 50
 LR = 0.001              # 学习率
 
@@ -41,62 +42,71 @@ class CNN(nn.Module):
             nn.MaxPool2d(2),                # output shape (32, 40, 40)
         )
 
-        self.conv3 = nn.Sequential(         # input shape (32, 40, 40)
-            nn.Conv2d(16, 32, 3, 1, 1),     # output shape (64, 40, 40)
-            nn.BatchNorm2d(32),
-            nn.ReLU(),                      # activation
-            nn.MaxPool2d(2),                # output shape (64, 20, 20)
-        )
+        # self.conv3 = nn.Sequential(         # input shape (32, 40, 40)
+        #     nn.Conv2d(16, 32, 3, 1, 1),     # output shape (64, 40, 40)
+        #     nn.BatchNorm2d(32),
+        #     nn.ReLU(),                      # activation
+        #     nn.MaxPool2d(2),                # output shape (64, 20, 20)
+        # )
+        #
+        # self.conv4 = nn.Sequential(
+        #     nn.Conv2d(32,64,3,1,1),
+        #     nn.BatchNorm2d(64),
+        #     nn.ReLU(),
+        #     nn.MaxPool2d(2),
+        # )
 
-        self.conv4 = nn.Sequential(
-            nn.Conv2d(32,64,3,1,1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-        )
-
-        out_one = int(int(width)/pow(2,4))
-        self.out = nn.Linear(64 * out_one * out_one, 3)   # fully connected layer, output 10 classes
+        out_one = int(int(width)/pow(2,2))
+        self.out = nn.Linear(16 * out_one * out_one, 3)   # fully connected layer, output 10 classes
 
     def forward(self, x):
         x = self.conv1(x)
         x = self.conv2(x)
-        x = self.conv3(x)
-        x = self.conv4(x)
+        # x = self.conv3(x)
+        # x = self.conv4(x)
         x = x.view(x.size(0), -1)           # flatten the output of conv2 to (batch_size, 128 * 10 * 10)
         output = self.out(x)
         return output    # return x for visualization
 
 def train_model():
-    ls = LossShow.LossShow(1,["red"],["loss1"])
-    ls.plt_init()
+    if is_draw == True:
+        ls = LossShow.LossShow(1,["red"],["loss1"])
+        ls.plt_init()
 
-    datas,labels,width,height=read_datas2("data\\")
+    datas,labels,width,height=read_datas2(r"imgs")
+    if len(datas) == 0:
+        print("train data size = 0")
+        exit(0)
     torch_datas = torch.from_numpy(datas)
     torch_labels = torch.from_numpy(labels)
     if os.path.exists(pkl_name):
+        print("find pkl file,load model")
         cnn = torch.load(pkl_name)
     else:
+        print("not find pkl file,will create a new model")
         cnn = CNN(width,height)
-    print(cnn)
+    print("begin train img_size(%d)"%(len(datas)))
+    #print(cnn)
     optimizer = torch.optim.Adam(cnn.parameters(), lr=LR)   # optimize all cnn parameters
     loss_func = nn.CrossEntropyLoss()                       # the target label is not one-hotted
-    loss_func2 = torch.nn.MSELoss()
     for epoch in range(EPOCH):
         output = cnn(torch_datas)
-        loss = loss_func2(output,torch_labels)
-        if loss<0.0005:
+        loss = loss_func(output,torch_labels)
+        if loss<0.05:
             break
-        ls.show([loss.detach().numpy()])
+        if is_draw == True:
+            ls.show([loss.detach().numpy()])
 
-        print('epoch=%d loss=%0.4f'%(epoch,loss))
+        if epoch % 10 ==0:
+            print('epoch=%d loss=%0.4f'%(epoch,loss))
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
     torch.save(cnn,pkl_name)
 
-    ls.stop()
+    if is_draw == True:
+        ls.stop()
 
     return cnn
 
@@ -110,6 +120,30 @@ def get_max_index(row):
             res = i
         i = i+1
     return res
+
+def get_max_index(row):
+    max_value = -99999999.0
+    res = 0
+    i = 0
+    for a in row:
+        if a > max_value:
+            max_value = a
+            res = i
+        i = i+1
+    return res
+
+def get_right_move(cnn,img):
+    if cnn==None:
+        return random.randint(0,2)
+    torch_datas = torch.from_numpy(img)
+    out_put = cnn(torch_datas)
+    return get_max_index(out_put[0])
+
+def get_cnn():
+    if os.path.exists(pkl_name):
+        return torch.load(pkl_name)
+    return None
+
 
 def cnn_test(cnn):
     datas,labels,w,h=read_datas2("test\\")
@@ -140,5 +174,3 @@ if __name__ == "__main__":
         cnn = train_model()
     elif sys.argv[1]=="test":
         cnn = torch.load(pkl_name)
-
-    cnn_test(cnn)
