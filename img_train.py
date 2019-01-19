@@ -12,7 +12,10 @@ import sys
 import LossShow
 from img_data_read import *
 
-EPOCH = 100              # train the training data n times, to save time, we just train 1 epoch
+GPUID = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = GPUID
+
+EPOCH = 800              # train the training data n times, to save time, we just train 1 epoch
 BATCH_SIZE = 50
 LR = 0.001              # 学习率
 
@@ -77,33 +80,47 @@ def train_model():
     if len(datas) == 0:
         print("train data size = 0")
         exit(0)
-    torch_datas = torch.from_numpy(datas)
-    torch_labels = torch.from_numpy(labels)
+
+    data_len = len(datas)
+
     if os.path.exists(pkl_name):
         print("find pkl file,load model")
-        cnn = torch.load(pkl_name)
+        cnn = torch.load(pkl_name).cuda()
     else:
         print("not find pkl file,will create a new model")
-        cnn = CNN(width,height)
+        cnn = CNN(width,height).cuda()
+
+    while_num = 0
+    if data_len%BATCH_SIZE==0:
+        while_num = int(data_len/BATCH_SIZE)
+    else:
+        while_num = int(data_len/BATCH_SIZE + 1)
+
     print("begin train img_size(%d)"%(len(datas)))
-    #print(cnn)
-    optimizer = torch.optim.Adam(cnn.parameters(), lr=LR)   # optimize all cnn parameters
-    loss_func = nn.CrossEntropyLoss()                       # the target label is not one-hotted
-    for epoch in range(EPOCH):
-        output = cnn(torch_datas)
-        loss = loss_func(output,torch_labels)
-        if loss<0.05:
-            break
-        if is_draw == True:
-            ls.show([loss.detach().numpy()])
+    for i in range(while_num):
+        d = datas[i*BATCH_SIZE:(i+1)*BATCH_SIZE]
+        l = labels[i*BATCH_SIZE:(i+1)*BATCH_SIZE]
+        torch_datas = torch.from_numpy(d)
+        torch_labels = torch.from_numpy(l)
+        print("batch(%d) data_size(%d)"%(i,len(d)))
+        optimizer = torch.optim.Adam(cnn.parameters(), lr=LR)   # optimize all cnn parameters
+        loss_func = nn.CrossEntropyLoss()                       # the target label is not one-hotted
+        for epoch in range(EPOCH):
+            output = cnn(torch_datas.cuda())
+            loss = loss_func(output.cpu(),torch_labels)
+            if loss<0.001:
+                print("batch(%d) train over epoch=%d loss=%0.6f"%(i,epoch,loss))
+                break
+            if is_draw == True:
+                ls.show([loss.detach().numpy()])
 
-        if epoch % 10 ==0:
-            print('epoch=%d loss=%0.4f'%(epoch,loss))
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+            if epoch%20==0:
+                print('batch(%d) epoch=%d loss=%0.4f'%(i,epoch,loss))
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-    torch.save(cnn,pkl_name)
+        torch.save(cnn,pkl_name)
 
     if is_draw == True:
         ls.stop()
@@ -136,12 +153,13 @@ def get_right_move(cnn,img):
     if cnn==None:
         return random.randint(0,2)
     torch_datas = torch.from_numpy(img)
-    out_put = cnn(torch_datas)
+    out_put = cnn(torch_datas.cuda())
+    out_put = out_put.cpu()
     return get_max_index(out_put[0])
 
 def get_cnn():
     if os.path.exists(pkl_name):
-        return torch.load(pkl_name)
+        return torch.load(pkl_name).cuda()
     return None
 
 

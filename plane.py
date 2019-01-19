@@ -12,12 +12,12 @@ import shutil
 from img_data_read import *
 from img_train import *
 
-dlg_width = 160
-dlg_heigth = 160
-rect_length = 20
-move_speed = 4
+dlg_width = 80
+dlg_heigth = 80
+rect_length = 12
+move_speed = 2
 
-rate = 10
+rate = 8
 
 class TObject:
     def __init__(self,pos,color):
@@ -36,13 +36,13 @@ class TObject:
         return True
     def MoveLeft(self):
         if self.pos.width() > rect_length/2:
-            self.pos = QSize(self.pos.width()-1,self.pos.height())
+            self.pos = QSize(self.pos.width()-move_speed,self.pos.height())
             return True
         return False
 
     def MoveRight(self):
         if self.pos.width() < (dlg_width - rect_length/2):
-            self.pos = QSize(self.pos.width() + 1, self.pos.height())
+            self.pos = QSize(self.pos.width() + move_speed, self.pos.height())
             return True
         return False
 
@@ -55,22 +55,13 @@ class TObject:
         return False
 
 class MainDlg(QWidget):
+
     def __init__(self):
         super().__init__()
         self.initUI()
-        self.t = QTimer(self)
-        self.t.timeout.connect(self.update)
-        self.t.start(200/rate)
-
-        self.t2 = QTimer(self)
-        self.t2.timeout.connect(self.enimy_move)
-        self.t2.start(200/rate)
-
-        self.t3 = QTimer(self)
-        self.t3.timeout.connect(self.auto_move)
-        self.t3.start(100/rate)
 
         people_pos = QSize(dlg_width/2,dlg_heigth-rect_length/2)
+        # people_pos = QSize(15,dlg_heigth-rect_length/2)
         self.people = TObject(people_pos,QColor(200,0,0))
         self.enemys = []
         self.last_enemy_product_time = 0
@@ -84,6 +75,19 @@ class MainDlg(QWidget):
         os.mkdir("imgs")
 
         self.cnn = get_cnn()
+
+        self.t = QTimer(self)
+        self.t.timeout.connect(self.update)
+        self.t.start(200/rate)
+
+        self.t2 = QTimer(self)
+        self.t2.timeout.connect(self.enimy_move)
+        self.t2.start(200/rate)
+
+        self.t3 = QTimer(self)
+        self.t3.timeout.connect(self.auto_move)
+        self.t3.start(200/rate)
+
 
     def quit(self):
         self.t.stop()
@@ -108,20 +112,19 @@ class MainDlg(QWidget):
                 m = r
             else:
                 m = 0
-
         elif r == 2:
             if self.people.MoveRight() == True:
                m = r
             else:
                 m = 0
 
-        bmp_name = format("imgs\\img_%d_%d.bmp"%(self.save_count,m))
+        bmp_name = format("imgs\\img_%d_%d_%d.bmp"%(self.save_count,m,self.people.pos.width()))
         self.pixmap.save(bmp_name)
         self.save_count += 1
 
     def enimy_move(self):
-        if len(self.enemys)<6:
-            if (time.time()*1000 - self.last_enemy_product_time)>4000/rate:
+        if len(self.enemys)<1:
+            if (time.time()*1000 - self.last_enemy_product_time)>8000/rate:
                 self.ProductAEnemy()
 
         del_objs = []
@@ -139,10 +142,9 @@ class MainDlg(QWidget):
             self.score += 1
 
     def initUI(self):
-        self.setGeometry(800, 700, dlg_width, dlg_heigth)
+        self.setGeometry(300, 300, dlg_width, dlg_heigth)
         self.setWindowTitle("Plane")
         self.show()
-        self.minimumSize()
 
     def paintEvent(self, e):
         #pixmap = QImage(dlg_width, dlg_heigth)
@@ -168,18 +170,39 @@ class MainDlg(QWidget):
 
     def ProductAEnemy(self):
         self.last_enemy_product_time = time.time()*1000
+        # if random.randint(0,10) <6:
+        #     rand_x = random.randint(rect_length/2,20)
+        # else:
+        #     rand_x = random.randint(rect_length/2,dlg_width-rect_length/2)
         rand_x = random.randint(rect_length/2,dlg_width-rect_length/2)
+
         y = rect_length/2
         enemy = TObject(QSize(rand_x,y),QColor(0,200,0))
         self.enemys.append(enemy)
 
     def keyPressEvent(self, e):
+        m = 0
         if e.key() == Qt.Key_Escape:
             self.is_save = True
         elif e.key() == Qt.Key_Left:
+            m = 1
             self.people.MoveLeft()
         elif e.key() == Qt.Key_Right:
+            m = 2
             self.people.MoveRight()
+        elif e.key() == Qt.Key_Down:
+            m = 0
+
+        if m==1:
+            self.people.MoveLeft()
+        elif m == 2:
+            self.people.MoveRight()
+
+        bmp_name = format("imgs\\img_%d_%d.bmp"%(self.save_count,m))
+        self.pixmap.save(bmp_name)
+        self.save_count += 1
+
+
 
     def drawMap(self,qp,map):
         #qp.drawPixmap(QPoint(0,0),map)

@@ -50,11 +50,20 @@ def read_datas(dir):
             i = i+1
     return res,label,label2,w,h
 
-def GetRightLabel(l):
-    while True:
-        res = random.randint(0,2)
-        if res != l:
-            return res
+def GetRightLabel(l,x):
+
+    if x <40:
+        return 2
+    else:
+        return 1
+
+    if x > 65:
+        return 1
+
+    # while True:
+    #     res = random.randint(0,2)
+    #     if res != l:
+    #         return res
 
 # def read_datas2(dir):
 #     for (root,dirs,files) in os.walk(dir):
@@ -84,38 +93,68 @@ def read_datas2(dir):
     for (root, dirs, files) in os.walk(dir):
         for item in files:
             spls = item.split('_')
-            if len(spls) !=3:
+            if len(spls) !=4:
                 continue
             index = int(spls[1])
             mps[index] = item
 
     mpskeys = sorted(mps.keys())
-    fs = []
+    mpskeys.reverse()
     count = 0
+    i = 0
+
+    whole_nums = 0
+
+    whole_nums = len(mpskeys)
+
+    w = 80
+    h = 80
+    label = np.ndarray(shape=whole_nums,dtype='int64')
+    res = np.ndarray(shape=(whole_nums, 3, w, h), dtype='float32')
+
+    wrong_form = [0,0,0]
+    wrong_index = []
+
+    avg_pos_x = 0
+
+    wrong_use_nums = 20
+
     for k in mpskeys:
-        fs.append(mps[k])
+        file_path = format("%s\%s"%(dir,mps[k]))
+        r, w, h = read_one_data2(file_path)
+        res[count] = r
+        l = file_path.replace('.bmp', '')
+        ls = l.split('_')
+        if len(ls) != 4:
+            continue
+        if count<wrong_use_nums:
+            wrong_form[int(ls[2])]+=1
+            wrong_index.append(count)
+            #label[count] = GetRightLabel(int(ls[2]))
+            avg_pos_x += int(ls[3])
+        else:
+            label[count] = int(ls[2])
         count+=1
-        if count == 50:
+        if count==whole_nums:
             break
+
+    avg_pos_x/=wrong_use_nums
+
+    max_index = -1
+    max_num = -1
+    for i in range(3):
+        if wrong_form[i]>max_num:
+            max_num = wrong_form[i]
+            max_index = i
+
+    right_index = GetRightLabel(max_index,avg_pos_x)
+    print("avg_pos",avg_pos_x,"right_index",right_index)
+    for i in wrong_index:
+        label[i] = right_index
 
     if count == 0:
         print("count is zero")
 
-    label = np.ndarray(shape=len(fs),dtype='int64')
-    res = np.ndarray(shape=(count, 3, 160, 160), dtype='float32')
-    w = 160
-    h = 160
-    i=0
-    for item in fs:
-       file_path = format("%s\%s"%(dir,item))
-       r, w, h = read_one_data2(file_path)
-       res[i] = r
-       l = file_path.replace('.bmp', '')
-       ls = l.split('_')
-       if len(ls) != 3:
-           continue
-       label[i] = GetRightLabel(int(ls[2]))
-       i = i + 1
     return res,label,w,h
 
 
